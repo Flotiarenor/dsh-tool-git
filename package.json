@@ -1,0 +1,68 @@
+{
+  "name": "@flotiarenor/dsh-tool-git",
+  "version": "0.2.0",
+  "description": "Typed Git tools (git / git_commit) for DeepSeek Harness. Repository work goes through one typed seam instead of the shell: `git` runs a whitelisted set of subcommands with named arguments, `git_commit` COMPOSES the commit message from structured fields (type / scope / subject / body / breaking / footers) and refuses to commit when the message breaks the project's rules -- subject width, trailing punctuation, colloquial filler, placeholder subjects, malformed trailers, bypassed hooks. A tool guard refuses state-changing `git` subcommands inside pwsh/bash and points at the git tool, so a commit cannot slip through the shell with a free-form -m. Conventions default to Conventional Commits and can be overridden per repository by .dsh/commit-conventions.md; the effective rules are injected as a prompt section. Pure Node and in-process: no third-party package, no build step, no imports beyond node: builtins, and the git process is spawned through ctx.subprocess when that service exists.",
+  "type": "module",
+  "main": "lib/git.mjs",
+  "exports": {
+    ".": "./lib/git.mjs",
+    "./conventions": "./lib/conventions.mjs",
+    "./message": "./lib/message.mjs",
+    "./commands": "./lib/commands.mjs",
+    "./shellgit": "./lib/shellgit.mjs",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node tools/selftest.mjs",
+    "selftest": "node tools/selftest.mjs",
+    "check": "node tools/syntax.mjs"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek",
+    "deepseek-harness",
+    "cordis",
+    "cordis-plugin",
+    "tool",
+    "git",
+    "commit",
+    "conventional-commits",
+    "commitlint"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Flotiarenor",
+    "url": "https://github.com/Flotiarenor"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": ">=0.1.0-rc.6 || >=0.1.5-rc.2"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "homepage": "https://github.com/Flotiarenor/dsh-tool-git#readme",
+  "bugs": {
+    "url": "https://github.com/Flotiarenor/dsh-tool-git/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Flotiarenor/dsh-tool-git.git"
+  }
+}

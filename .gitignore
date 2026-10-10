@@ -1,0 +1,13 @@
+# 运行产物
+node_modules/
+*.log
+
+# 编辑器/系统
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# 自测临时工作区（兜底；常规落在系统临时目录）
+.dsh/
+.tmp-live
