@@ -26,7 +26,7 @@ import {
   sanitizePromptText,
 } from '../lib/conventions.mjs'
 import { composeMessage, displayWidth, lintCommit, parseMessage } from '../lib/message.mjs'
-import { classifyGitArgs, detectShellGitWrite } from '../lib/shellgit.mjs'
+import { classifyGitArgs, detectShellGitBlock } from '../lib/shellgit.mjs'
 import { actionKinds, actionNames, buildPlan } from '../lib/commands.mjs'
 import { createExecutor } from '../lib/exec.mjs'
 import { apply, internals, readSettings } from '../lib/git.mjs'
@@ -236,29 +236,26 @@ equal('fallback to defaults', loadConventions(join(tempRoot, 'missing'), {}).rul
 // ─────────────────────────────────────────────────────────────────────────────
 const guardCases = [
   ['git commit -m "改了下"', 'commit'],
-  ['git  add .', 'add'],
   ['cd repo; git commit -m x', 'commit'],
-  ['git add . && git commit -m x', 'add'],
+  ['git add . && git commit -m x', 'commit'],
   ['git status; git commit -m x', 'commit'],
-  ['& git push origin main', 'push'],
+  ['git commit --amend', 'commit'],
   ['"C:\\Program Files\\Git\\cmd\\git.exe" commit -m x', 'commit'],
   ['git -C D:\\work\\repo commit -m x', 'commit'],
   ['git --no-pager commit -m x', 'commit'],
   ['bash -c "git commit -m x"', 'commit'],
-  ['pwsh -NoProfile -Command "git reset --hard HEAD~1"', 'reset'],
-  ['env git fetch --all', 'fetch'],
+  ['pwsh -NoProfile -Command "git commit --amend"', 'commit'],
   ['Start-Process git -ArgumentList commit', 'commit'],
-  ['git stash', 'stash'],
-  ['git branch new-feature', 'branch'],
-  ['git tag v1.0.0', 'tag'],
-  ['git checkout main', 'checkout'],
-  ['git lfs install', 'lfs'],
+  ['env git merge --no-edit main', 'merge'],
+  ['git merge feature', 'merge'],
+  ['git commit-tree abc -m x', 'commit-tree'],
 ]
 for (const [command, expected] of guardCases) {
-  const hit = detectShellGitWrite(command)
+  const hit = detectShellGitBlock(command)
   check(`detect: ${command}`, hit !== null && hit.subcommand === expected, hit === null ? 'no hit' : `hit ${hit.subcommand}`)
 }
 
+// 其余 git 命令一律放行：工具没有的动作被拦掉只会让人另找绕路，收益是负的。
 const allowedCases = [
   'git status',
   'git status --short --branch',
@@ -274,18 +271,44 @@ const allowedCases = [
   'git rev-parse --show-toplevel',
   'git ls-files',
   'git --version',
+  'git clone --filter=blob:none --no-checkout https://github.com/Flotiarenor/Python-3.10.13 D:\\project\\Python\\work\\upstream',
+  'git clone https://github.com/Flotiarenor/dsh-tool-git.git',
+  'git push origin main',
+  'git fetch --all --prune',
+  'git pull --rebase',
+  'git add -A',
+  'git reset --hard HEAD~1',
+  'git rebase main',
+  'git cherry-pick abc123',
+  'git revert HEAD',
+  'git clean -fd',
+  'git stash push -u',
+  'git checkout main',
+  'git switch -c feature/x',
+  'git rm -r old',
+  'git init',
+  'git config core.hooksPath .githooks',
+  'git remote add origin https://github.com/Flotiarenor/x.git',
+  'git worktree add ../wt',
+  'git submodule update --init --recursive',
+  'git lfs install',
+  'git bisect start',
+  'git apply fix.patch',
+  'git archive -o src.zip HEAD',
   'Write-Output "never run git commit in a shell"',
   'Get-Content notes.md | Select-String "git push"',
   'git grep "git commit"',
 ]
 for (const command of allowedCases) {
-  const hit = detectShellGitWrite(command)
+  const hit = detectShellGitBlock(command)
   check(`allow: ${command}`, hit === null, hit === null ? '' : `blocked ${hit.subcommand}`)
 }
-equal('classify branch create', classifyGitArgs(['branch', 'x']).kind, 'write')
-equal('classify branch list', classifyGitArgs(['branch', '-a']).kind, 'read')
-equal('classify config get', classifyGitArgs(['config', '--get', 'user.name']).kind, 'read')
-equal('classify config set', classifyGitArgs(['config', 'user.name', 'x']).kind, 'write')
+equal('classify commit', classifyGitArgs(['commit', '-m', 'x']).blocked, true)
+equal('classify commit through -C', classifyGitArgs(['-C', 'repo', 'commit']).blocked, true)
+equal('classify clone', classifyGitArgs(['clone', 'https://x/y.git']).blocked, false)
+equal('classify push', classifyGitArgs(['push', 'origin', 'main']).blocked, false)
+equal('classify bare version', classifyGitArgs(['--version']).subcommand, null)
+equal('classify bare version passes', classifyGitArgs(['--version']).blocked, false)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. argv 拼装与拒绝
@@ -307,6 +330,16 @@ equal('argv push upstream', argvOf({ action: 'push', remote: 'origin', branch: '
 equal('argv reset soft', argvOf({ action: 'reset', mode: 'soft', ref: 'HEAD~1' }), 'reset --soft HEAD~1')
 equal('argv add paths', argvOf({ action: 'add', paths: ['a.txt', 'dir b'] }), 'add -- a.txt dir b')
 equal('argv tag list', argvOf({ action: 'tag' }), 'tag --list')
+equal('argv clone', argvOf({ action: 'clone', url: 'https://github.com/o/r.git', dir: '../scratch' }), 'clone https://github.com/o/r.git ../scratch')
+equal('argv clone depth+branch', argvOf({ action: 'clone', url: 'git@github.com:o/r.git', depth: 1, branch: 'main' }), 'clone --depth=1 --branch main git@github.com:o/r.git')
+equal('argv clone scp form', argvOf({ action: 'clone', url: 'git@github.com:o/r.git' }), 'clone git@github.com:o/r.git')
+check('clone without url refused', argvOf({ action: 'clone' }).startsWith('REFUSED'))
+check('clone transport helper refused', argvOf({ action: 'clone', url: 'ext::sh -c whoami' }).startsWith('REFUSED'))
+check('clone unknown scheme refused', argvOf({ action: 'clone', url: 'ftp://host/repo.git' }).startsWith('REFUSED'))
+check('clone flag-shaped url refused', argvOf({ action: 'clone', url: '--upload-pack=calc' }).startsWith('REFUSED'))
+check('clone flag-shaped dir refused', argvOf({ action: 'clone', url: 'https://x/y.git', dir: '--force' }).startsWith('REFUSED'))
+check('clone rejects denied flag', !plan({ action: 'clone', url: 'https://x/y.git', flags: ['--upload-pack=calc'] }).ok)
+check('clone kind is write', plan({ action: 'clone', url: 'https://x/y.git' }).kind === 'write')
 check('argv add without paths refused', argvOf({ action: 'add' }).startsWith('REFUSED'))
 check('commit action refused with hint', !plan({ action: 'commit' }).ok && plan({ action: 'commit' }).errors[0].code === 'action.commit')
 check('unknown action refused', !plan({ action: 'frobnicate' }).ok)
@@ -332,9 +365,10 @@ check('action kinds cover catalog', actionKinds().size === actionNames().length)
 {
   const settings = readSettings({ shellGuard: 'off', maxOutputBytes: 2048, rules: { types: ['feat'] } })
   equal('settings shellGuard', settings.shellGuard, 'off')
+  equal('shellGuard defaults to commit', readSettings({}).shellGuard, 'commit')
   equal('settings maxOutputBytes', settings.maxOutputBytes, 2048)
   equal('settings rules', settings.rules.types.join(','), 'feat')
-  for (const bad of [{ guidance: 'loud' }, { shellGuard: 'always' }, { timeoutMs: 1 }, { typo: 1 }, { rules: { nope: 1 } }]) {
+  for (const bad of [{ guidance: 'loud' }, { shellGuard: 'always' }, { shellGuard: 'write' }, { timeoutMs: 1 }, { typo: 1 }, { rules: { nope: 1 } }]) {
     let threw = false
     try {
       readSettings(bad)
@@ -476,6 +510,13 @@ function mockCtx() {
   const denial = guard({ name: 'pwsh', arguments: { command: 'git commit -m "改了下"' } })
   check('guard denies git commit in pwsh', typeof denial === 'string' && denial.includes('git_commit'))
   check('guard allows read-only git', guard({ name: 'pwsh', arguments: { command: 'git status' } }) === undefined)
+  check(
+    'guard allows git clone',
+    guard({ name: 'pwsh', arguments: { command: 'git clone --filter=blob:none --no-checkout https://github.com/Flotiarenor/Python-3.10.13 D:\\tmp\\up' } }) === undefined,
+  )
+  check('guard allows git push', guard({ name: 'pwsh', arguments: { command: 'git push origin main' } }) === undefined)
+  check('guard allows git reset --hard', guard({ name: 'pwsh', arguments: { command: 'git reset --hard HEAD~1' } }) === undefined)
+  check('guard denies git merge', typeof guard({ name: 'pwsh', arguments: { command: 'git merge feature' } }) === 'string')
   check('guard ignores other tools', guard({ name: 'read', arguments: { command: 'git commit' } }) === undefined)
 
   const settings = mockCtx()

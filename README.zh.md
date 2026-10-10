@@ -29,7 +29,7 @@ COMMITTED 4f2c1a9
 | `git_commit` | 工具 | 结构化字段 → 拼装信息 → 校验 → 提交（或 `dry_run` 预览） |
 | `tool:git` | 提示词段（order 118） | 仓库操作走工具、不走 shell；被拒绝不等于要绕路 |
 | `git:commit-conventions` | 提示词段（order 119） | **动态**：按会话目录解析出该仓库实际生效的规则与示例 |
-| shell 拦截 | `ctx.tools.guard` | 拒绝 pwsh/bash 里会改仓库状态的 git 调用，并指出该用哪个动作 |
+| shell 拦截 | `ctx.tools.guard` | **只拦会产生提交信息的命令**（`commit` / `merge` / `commit-tree`），并给出替代调用；其余 git 命令照常在 shell 里跑 |
 
 只注册**不与原生工具重名**的两个工具，原生 pwsh/bash 原样保留（只多一道 guard），回退就是给 preset 行加 `disabled: true`。
 
@@ -38,7 +38,7 @@ COMMITTED 4f2c1a9
 `action` 是唯一必填字段，各动作只读它自己声明过的字段。
 
 **只读**：`status` `diff` `log` `show` `blame` `branch` `rev_parse` `ls_files` `stash_list` `remote` `config_get` `version`
-**写**：`add` `restore` `switch` `stash` `fetch` `pull` `push` `merge` `revert` `cherry_pick` `reset` `rm` `mv` `tag` `clean` `init`
+**写**：`add` `restore` `switch` `stash` `fetch` `pull` `push` `merge` `revert` `cherry_pick` `reset` `rm` `mv` `tag` `clean` `clone` `init`
 **看参数定性质**：`stash`（`list`/`show` 只读）、`tag`（不给 `name` 就是列标签）
 
 约定：
@@ -135,7 +135,7 @@ preset 行 / bundle 行的 `config:` 原样透传（本插件没有 Config schem
 | `conventions` | `'repo'` | `'builtin'` 表示不读仓库内规范文件 |
 | `conventionsFiles` | 见上 | 覆盖查找顺序 |
 | `maxProseBytes` | `4096` | 规范文件自由文本上限 |
-| `shellGuard` | `'write'` | `'off'` 不注册拦截 |
+| `shellGuard` | `'commit'` | 只拦 `git commit` / `git merge` / `git commit-tree`；`'off'` 完全不拦 |
 | `guardTools` | `['pwsh','bash']` | 拦哪些工具 |
 | `allowNoVerify` | `false` | 是否允许 `git_commit` 传 `no_verify` |
 | `rules` | `{}` | 覆盖内置规范（`types` / `scopes` / `requireScope` / `subjectMaxColumns` / `subjectSoftColumns` / `bodyMaxColumns` / `language` / `subjectLowerCase` / `requireBody` / `allowEmoji` / `firstPerson` / `banned`；`subjectSoftColumns` 与 `bodyMaxColumns` 取 `0` 表示关闭该项） |
@@ -158,8 +158,10 @@ dsh plugin --profile desktop remove @flotiarenor/dsh-tool-git
 
 * **拦截是约束，不是沙箱。** 别名、把命令藏进多层字符串、或用别的程序间接调用 git，都能绕过；
   真正的边界是"提交信息由工具拼装"这件事本身，而不是那条 guard。
-* `git` 工具不是 git 的完整包装：`rebase`、`clone`、`submodule`、`worktree`、`bisect`、`lfs`、`apply`、`am`
-  这些没有动作，shell 里也被拦（fail-closed），模型会明确说"工具不支持，请你来跑"，而不是绕路。
+* `git` 工具不是 git 的完整包装：`rebase`、`submodule`、`worktree`、`bisect`、`lfs`、`apply`、`am` 这些没有动作，
+  **但 shell 里照常可以跑**——把工具没有的动作也拦掉只会让人另找绕路，收益是负的。
+* shell 拦截只覆盖三件事：`commit`、`merge`、`commit-tree`。`git commit -m "<口语>"` 这条路走不通，
+  提交信息必须由 `git_commit` 拼装校验；`add`/`push`/`reset --hard`/`clean -fd` 之类不在拦截范围内。
 * 校验是**拒绝**而不是改写：主题超宽不会自动截断。这是有意的——静默改写会把模型的原意改掉，
   而且它学不到规则。
 * 口语清单是**枚举**：中文按子串、英文按词边界。新词需要加进 `lib/conventions.mjs`，或用仓库文件的 `banned` 追加。

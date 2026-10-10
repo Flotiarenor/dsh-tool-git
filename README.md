@@ -30,7 +30,7 @@ COMMITTED 4f2c1a9
 | `git_commit` | tool | Structured fields → composed message → validation → commit (or `dry_run` preview) |
 | `tool:git` | prompt section (order 118) | Repository work goes through the tool, not a shell; a refusal is not a detour to route around |
 | `git:commit-conventions` | prompt section (order 119) | **Dynamic**: the rules and examples in effect for the session's repository |
-| shell guard | `ctx.tools.guard` | Refuses state-changing git in pwsh/bash and names the replacement call |
+| shell guard | `ctx.tools.guard` | Refuses the commands that write a commit message (`commit` / `merge` / `commit-tree`) and names the replacement call; every other git command runs in the shell as usual |
 
 Both tools are new names (nothing native is shadowed), so the fallback is one `disabled: true` on the row.
 
@@ -39,7 +39,7 @@ Both tools are new names (nothing native is shadowed), so the fallback is one `d
 `action` is the only required field; each action reads only the fields it documents.
 
 **Read**: `status` `diff` `log` `show` `blame` `branch` `rev_parse` `ls_files` `stash_list` `remote` `config_get` `version`
-**Write**: `add` `restore` `switch` `stash` `fetch` `pull` `push` `merge` `revert` `cherry_pick` `reset` `rm` `mv` `tag` `clean` `init`
+**Write**: `add` `restore` `switch` `stash` `fetch` `pull` `push` `merge` `revert` `cherry_pick` `reset` `rm` `mv` `tag` `clean` `clone` `init`
 **Depends on the arguments**: `stash` (`list`/`show` are reads), `tag` (no `name` lists tags)
 
 Conventions:
@@ -124,7 +124,7 @@ The row's `config:` is passed through verbatim (no Config schema). A mistyped ke
 | `conventions` | `'repo'` | `'builtin'` ignores repository convention files |
 | `conventionsFiles` | see above | override the lookup order |
 | `maxProseBytes` | `4096` | cap for the free text taken from a conventions file |
-| `shellGuard` | `'write'` | `'off'` disables the guard |
+| `shellGuard` | `'commit'` | blocks only `git commit` / `git merge` / `git commit-tree`; `'off'` disables the guard |
 | `guardTools` | `['pwsh','bash']` | which tools the guard inspects |
 | `allowNoVerify` | `false` | whether `git_commit` may pass `no_verify` |
 | `rules` | `{}` | override the built-in rules (`types` / `scopes` / `requireScope` / `subjectMaxColumns` / `subjectSoftColumns` / `bodyMaxColumns` / `language` / `subjectLowerCase` / `requireBody` / `allowEmoji` / `firstPerson` / `banned`; `subjectSoftColumns` and `bodyMaxColumns` take `0` to switch that check off) |
@@ -145,9 +145,12 @@ every session in the profile. To scope it to one preset instead, insert
 
 * The guard is a **constraint, not a sandbox**: aliases, nested strings and indirect calls can get around it.
   The real boundary is that the commit message is composed by the tool.
-* The tool is not a full git wrapper: `rebase`, `clone`, `submodule`, `worktree`, `bisect`, `lfs`, `apply`
-  and `am` have no action and are refused in the shell (fail-closed). The model is told to hand those back
-  to the user instead of finding another route.
+* The tool is not a full git wrapper: `rebase`, `submodule`, `worktree`, `bisect`, `lfs`, `apply` and `am`
+  have no action — but they **do** run in the shell. Blocking operations the tool cannot express only
+  pushes callers toward a detour.
+* The shell guard covers exactly three commands: `commit`, `merge`, `commit-tree`. `git commit -m "<prose>"`
+  is closed off, so a message has to go through `git_commit`; `add`, `push`, `reset --hard` or `clean -fd`
+  are not intercepted.
 * Validation **refuses** rather than rewrites: an over-wide subject is not truncated. Silent rewriting would
   change the author's meaning and teach the model nothing.
 * The filler lists are enumerations (Chinese by substring, English by word boundary); extend them in
