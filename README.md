@@ -71,9 +71,10 @@ Fields: `type` (required) `subject` (required) `scope` `body` `breaking` `footer
   a rewrite is reported as `[message.rewritten]`.
 
 Refusals include: unknown/missing type, invalid scope, missing or over-wide subject (a CJK character counts
-2 columns), trailing punctuation, placeholder subjects ("update", "修改"), colloquial filler (the matched
-words are named), an embedded type prefix, emoji, a first-person subject, language mismatch, over-wide or
-colloquial body, malformed trailers, `BREAKING CHANGE:` passed as a footer, and unknown fields.
+2 columns), trailing punctuation, placeholder subjects ("update", "修改"), spoken-language wording — spoken
+verbs, vague nouns, intensifiers and hedges, with the matched words named — an embedded type prefix, emoji,
+a first-person subject, language mismatch, over-wide or colloquial body, malformed trailers,
+`BREAKING CHANGE:` passed as a footer, and unknown fields.
 A subject over `subjectSoftColumns`, or a body over `bodySoftChars`, is only a warning; a body over
 `bodyConfirmChars` is refused **once** and goes through on a re-call that passes `confirm_length: true`
 (the confirmed call is reported as `body.length-confirmed`).

@@ -105,6 +105,18 @@ hasCode('reject placeholder subject', lintCommit({ type: 'fix', subject: '修改
 hasCode('reject trailing period', lintCommit({ type: 'fix', subject: '修复空指针崩溃。' }, rules), 'subject.trailing-punctuation')
 hasCode('reject colloquial subject', lintCommit({ type: 'fix', subject: '其实就是改了下登录' }, rules), 'subject.colloquial')
 hasCode('reject english filler', lintCommit({ type: 'fix', subject: 'just fix some stuff' }, rules), 'subject.colloquial')
+// 口语化不止语气词：口语动词、含糊名词、程度词、模糊限定词都要拦。
+hasCode('reject spoken verb', lintCommit({ type: 'fix', subject: '搞一下缓存清理' }, rules), 'subject.colloquial')
+hasCode('reject vague noun', lintCommit({ type: 'fix', subject: '调整侧栏里的东西' }, rules), 'subject.colloquial')
+hasCode('reject intensifier', lintCommit({ type: 'fix', subject: '挺慢的查询改走索引' }, rules), 'subject.colloquial')
+hasCode('reject hedge in body', lintCommit({ type: 'fix', subject: '修复查询超时', body: '估计是索引没命中。' }, rules), 'body.colloquial')
+hasCode('reject vague quantity in body', lintCommit({ type: 'fix', subject: '修复查询超时', body: '清理了一堆临时文件。' }, rules), 'body.colloquial')
+check(
+  'facts are not hedges',
+  lintCommit({ type: 'fix', subject: '修复并发写入', body: '冲突可能是由索引锁导致的，已在用例中复现。' }, rules).errors.length === 0,
+  `errors: ${codes(lintCommit({ type: 'fix', subject: '修复并发写入', body: '冲突可能是由索引锁导致的，已在用例中复现。' }, rules)).join(',')}`,
+)
+check('整树 is not filler', lintCommit({ type: 'fix', subject: '整树同步不再逐条 stat' }, rules).errors.length === 0)
 hasCode('reject embedded type', lintCommit({ type: 'fix', subject: 'feat: 添加导出接口' }, rules), 'subject.embedded-type')
 hasCode('reject emoji', lintCommit({ type: 'fix', subject: '修复登录崩溃 👍' }, rules), 'subject.emoji')
 hasCode('reject uppercase scope', lintCommit({ type: 'fix', scope: 'Parser', subject: '修复空指针崩溃' }, rules), 'scope.format')

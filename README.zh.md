@@ -74,7 +74,7 @@ COMMITTED 4f2c1a9
 | `subject.too-wide` | 主题超过 `subjectMaxColumns`（**CJK 记 2 列**，所以中文约 36 字就是 72 列） |
 | `subject.trailing-punctuation` | `修复空指针崩溃。` |
 | `subject.placeholder` | `修改` / `更新` / `update` / `wip` 这类等于没说的主题 |
-| `subject.colloquial` | `其实就是改了下`、`顺便修个 bug`、`just fix some stuff`（会点名命中的词） |
+| `subject.colloquial` / `body.colloquial` | 口语化措辞：口语动词（搞/弄）、含糊名词（东西）、程度词（挺/超级）、模糊限定词（大概/估计）、情绪词，以及 `banned` 里的自定义词——命中会**逐词点名**说明理由 |
 | `subject.embedded-type` | `subject: "feat: 添加接口"`（type 交给 `type` 字段） |
 | `subject.emoji` / `subject.noise` | emoji、`!!!`、`……` |
 | `subject.first-person` | `firstPerson: true` 时 subject 里出现"我" |
