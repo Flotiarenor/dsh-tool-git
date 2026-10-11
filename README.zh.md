@@ -58,6 +58,9 @@ COMMITTED 4f2c1a9
 * 信息由插件拼成 `<type>(<scope>): <subject>` + 空行 + 正文 + trailer 段；`breaking` 会自动补主题行的 `!` 与 `BREAKING CHANGE:` trailer。
 * `dry_run: true` 只拼装 + 校验 + 回显信息，不碰仓库（想在提交前看一眼就用它）。
 * 暂存：`paths` / `all` / `update`；暂存后**真的没有内容**就拒绝提交（不是提交一个空提交）。
+* 正文长度**三级处理，不做硬墙**：≤ `bodySoftChars` 静默通过；超过只**告警**；超过 `bodyConfirmChars` 时
+  **拒绝一次**，要求按提示砍字、或带 `confirm_length: true` 重新调用（确认放行的那次会在结果里留一条
+  `body.length-confirmed` 告警）。这样"再写 900 字"要多付一次显式确认，而不是被一堵墙挡死。
 * hooks **总是运行**；`no_verify` 默认被拒绝（`allowNoVerify: true` 才放行）。
 * 提交后回读 `git log -1 --pretty=%B` 与拼装结果逐字比对，被 hook 改写会在结果里标 `[message.rewritten]`。
 
@@ -77,11 +80,12 @@ COMMITTED 4f2c1a9
 | `subject.first-person` | `firstPerson: true` 时 subject 里出现"我" |
 | `subject.language` | 项目写 `language: zh` 却给了英文主题（或反过来） |
 | `body.too-wide` / `body.colloquial` / `body.required` | 正文超宽、带填充语、项目要求正文却没写 |
+| `body.length-confirm` | 正文超过 `bodyConfirmChars`：**不是硬墙**，可以按提示砍字，或在确实每段都是事实时带 `confirm_length: true` 重调一次 |
 | `footer.format` | `这个问题见 #12`（trailer 要 `<Token>: <value>` 或 `<Token> #<issue>`） |
 | `breaking.in-footer` | 把 `BREAKING CHANGE:` 当 footer 传（用 `breaking` 字段） |
 | `arg.unknown` | 传了不存在的字段 |
 
-警告（不阻止）：`body.missing`（`fix`/`refactor`/`perf` 没写正文）、`subject.soft-width`（超过 `subjectSoftColumns` 的建议上限）、`subject.short`、`subject.shouting`、`body.first-person`（`firstPerson: true` 时正文出现"我"）、`body.marker`（还留着 TODO）、`body.repeats-subject`。
+警告（不阻止）：`body.missing`（`fix`/`refactor`/`perf` 没写正文）、`subject.soft-width`（超过 `subjectSoftColumns` 的建议上限）、`subject.short`、`subject.shouting`、`body.soft-length`（正文超过 `bodySoftChars` 的建议字数）、`body.length-confirmed`（正文长度是确认放行的）、`body.first-person`（`firstPerson: true` 时正文出现"我"）、`body.marker`（还留着 TODO）、`body.repeats-subject`。
 
 <a id="conventions-keys"></a>
 
@@ -106,6 +110,8 @@ requireScope: true
 subjectMaxColumns: 60                # 硬上限，显示宽度，CJK 记 2 列
 subjectSoftColumns: 50               # 建议上限：超过只告警，不拒绝（0 = 不设，默认 0）
 bodyMaxColumns: 100                  # 0 = 不限制正文行宽（贴命令输出的仓库常用）
+bodySoftChars: 600                   # 正文建议字数：超过只告警（0 = 不设）
+bodyConfirmChars: 800                # 正文确认阈值：超过要 confirm_length: true 才提交（0 = 不设）
 language: zh                         # any | zh | en
 subjectLowerCase: false
 requireBody: true
@@ -138,7 +144,7 @@ preset 行 / bundle 行的 `config:` 原样透传（本插件没有 Config schem
 | `shellGuard` | `'commit'` | 只拦 `git commit` / `git merge` / `git commit-tree`；`'off'` 完全不拦 |
 | `guardTools` | `['pwsh','bash']` | 拦哪些工具 |
 | `allowNoVerify` | `false` | 是否允许 `git_commit` 传 `no_verify` |
-| `rules` | `{}` | 覆盖内置规范（`types` / `scopes` / `requireScope` / `subjectMaxColumns` / `subjectSoftColumns` / `bodyMaxColumns` / `language` / `subjectLowerCase` / `requireBody` / `allowEmoji` / `firstPerson` / `banned`；`subjectSoftColumns` 与 `bodyMaxColumns` 取 `0` 表示关闭该项） |
+| `rules` | `{}` | 覆盖内置规范（`types` / `scopes` / `requireScope` / `subjectMaxColumns` / `subjectSoftColumns` / `bodyMaxColumns` / `bodySoftChars` / `bodyConfirmChars` / `language` / `subjectLowerCase` / `requireBody` / `allowEmoji` / `firstPerson` / `banned`；带 `0` 的那几项表示关闭该级） |
 
 ## 安装与卸载
 

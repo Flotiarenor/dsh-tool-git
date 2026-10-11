@@ -73,8 +73,10 @@ Fields: `type` (required) `subject` (required) `scope` `body` `breaking` `footer
 Refusals include: unknown/missing type, invalid scope, missing or over-wide subject (a CJK character counts
 2 columns), trailing punctuation, placeholder subjects ("update", "修改"), colloquial filler (the matched
 words are named), an embedded type prefix, emoji, a first-person subject, language mismatch, over-wide or
-colloquial body, malformed trailers, `BREAKING CHANGE:` passed as a footer, and unknown fields. A subject
-over `subjectSoftColumns` (but under the hard cap) is only a warning.
+colloquial body, malformed trailers, `BREAKING CHANGE:` passed as a footer, and unknown fields.
+A subject over `subjectSoftColumns`, or a body over `bodySoftChars`, is only a warning; a body over
+`bodyConfirmChars` is refused **once** and goes through on a re-call that passes `confirm_length: true`
+(the confirmed call is reported as `body.length-confirmed`).
 
 <a id="conventions-keys"></a>
 
@@ -98,6 +100,8 @@ requireScope: true
 subjectMaxColumns: 60
 subjectSoftColumns: 50      # suggested cap: over it is reported as a warning (0 = off, the default)
 bodyMaxColumns: 100         # 0 = no body line-width limit
+bodySoftChars: 600          # suggested body length: over it is only a warning
+bodyConfirmChars: 800       # over it the call must pass confirm_length (not a hard cap)
 language: zh
 subjectLowerCase: false
 requireBody: true

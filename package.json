@@ -1,6 +1,6 @@
 {
   "name": "@flotiarenor/dsh-tool-git",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Typed Git tools (git / git_commit) for DeepSeek Harness. Repository work goes through one typed seam instead of the shell: `git` runs a whitelisted set of subcommands with named arguments, `git_commit` COMPOSES the commit message from structured fields (type / scope / subject / body / breaking / footers) and refuses to commit when the message breaks the project's rules -- subject width, trailing punctuation, colloquial filler, placeholder subjects, malformed trailers, bypassed hooks. A tool guard refuses state-changing `git` subcommands inside pwsh/bash and points at the git tool, so a commit cannot slip through the shell with a free-form -m. Conventions default to Conventional Commits and can be overridden per repository by .dsh/commit-conventions.md; the effective rules are injected as a prompt section. Pure Node and in-process: no third-party package, no build step, no imports beyond node: builtins, and the git process is spawned through ctx.subprocess when that service exists.",
   "type": "module",
   "main": "lib/git.mjs",

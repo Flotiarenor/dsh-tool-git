@@ -137,6 +137,55 @@ hasCode('reject body filler', lintCommit({ type: 'fix', subject: '修复空指�
   check('refactor without body warns', warning.warnings.some((item) => item.code === 'body.missing'), 'no body.missing warning')
 }
 {
+  // 正文总字数：三级 —— 静默通过 / 告警通过 / 需要显式确认（confirm_length）。
+  const capped = { ...rules, bodyMaxColumns: 0, bodyConfirmChars: 300, bodySoftChars: 200 }
+  const under = lintCommit({ type: 'fix', subject: '修复登录崩溃', body: '背景：' + '字'.repeat(140) }, capped)
+  check('body under soft passes silently', under.errors.length === 0 && under.warnings.every((item) => item.code !== 'body.soft-length'), `errors: ${codes(under).join(',')}`)
+  const warned = lintCommit({ type: 'fix', subject: '修复登录崩溃', body: '背景：' + '字'.repeat(200) }, capped)
+  check('body over soft warns and still commits', warned.errors.length === 0 && warned.warnings.some((item) => item.code === 'body.soft-length'), `errors: ${codes(warned).join(',')}`)
+  const needsConfirm = lintCommit({ type: 'fix', subject: '修复登录崩溃', body: '背景：' + '字'.repeat(320) }, capped)
+  hasCode('body over confirm threshold needs confirmation', needsConfirm, 'body.length-confirm')
+  const confirmed = lintCommit({ type: 'fix', subject: '修复登录崩溃', body: '背景：' + '字'.repeat(320) }, capped, { confirmLength: true })
+  check('confirm_length lets it through', confirmed.errors.length === 0, `errors: ${codes(confirmed).join(',')}`)
+  check('confirmed length is recorded as a warning', confirmed.warnings.some((item) => item.code === 'body.length-confirmed'), `warnings: ${confirmed.warnings.map((i) => i.code).join(',')}`)
+  check('confirm_length does not silence the soft warning path', lintCommit({ type: 'fix', subject: '修复登录崩溃', body: '背景：' + '字'.repeat(200) }, capped, { confirmLength: true }).warnings.some((item) => item.code === 'body.soft-length'))
+  check('body char gate off by default', lintCommit({ type: 'fix', subject: '修复登录崩溃', body: '字'.repeat(900) }, rules).errors.every((item) => item.code !== 'body.length-confirm'))
+  check('newlines do not count toward the threshold', lintCommit({ type: 'fix', subject: '修复登录崩溃', body: '字'.repeat(90) + '\n\n' + '字'.repeat(90) }, capped).errors.length === 0)
+  equal('parsed bodyConfirmChars', parseConventionsText('bodyConfirmChars: 800\nbodySoftChars: 600').rules.bodyConfirmChars, 800)
+  equal('parsed bodyMaxChars alias', parseConventionsText('bodyMaxChars: 750').rules.bodyConfirmChars, 750)
+  equal('parsed bodysoftlength alias', parseConventionsText('bodysoftlength: 600').rules.bodySoftChars, 600)
+  check('bodySoftChars >= bodyConfirmChars throws', (() => {
+    try {
+      loadConventions(process.cwd(), { discover: false, rules: { bodyConfirmChars: 500, bodySoftChars: 600 } })
+      return false
+    } catch {
+      return true
+    }
+  })())
+}
+{
+  // config.rules 的键白名单必须覆盖全部规则：漏一个就会在启动期被误判为未知键。
+  const all = readSettings({
+    rules: {
+      types: ['feat'],
+      scopes: ['core'],
+      requireScope: true,
+      subjectMaxColumns: 60,
+      subjectSoftColumns: 50,
+      bodyMaxColumns: 80,
+      bodyConfirmChars: 800,
+      bodySoftChars: 600,
+      language: 'zh',
+      subjectLowerCase: true,
+      requireBody: true,
+      allowEmoji: true,
+      firstPerson: true,
+      banned: ['x'],
+    },
+  })
+  equal('every rule key is accepted in config.rules', Object.keys(all.rules).length, 14)
+}
+{
   // 建议上限（告警）与硬上限（拒绝）是两条线：项目文档常写"≤ 30 字，硬上限 40 字"。
   const soft = { ...rules, subjectMaxColumns: 80, subjectSoftColumns: 60 }
   const long = lintCommit({ type: 'fix', subject: '修复'.repeat(20) }, soft)
