@@ -310,6 +310,8 @@ const guardCases = [
   ['env git merge --no-edit main', 'merge'],
   ['git merge feature', 'merge'],
   ['git commit-tree abc -m x', 'commit-tree'],
+  ['wsl -d Ubuntu-22.04 -- bash -lc "cd /x && git commit -m x"', 'commit'],
+  ['wsl -d Ubuntu-22.04 -- bash -lc "git merge main"', 'merge'],
 ]
 for (const [command, expected] of guardCases) {
   const hit = detectShellGitBlock(command)
@@ -333,6 +335,11 @@ const allowedCases = [
   'git ls-files',
   'git --version',
   'git clone --filter=blob:none --no-checkout https://github.com/Flotiarenor/Python-3.10.13 D:\\project\\Python\\work\\upstream',
+  // 真实场景：经 wsl/启动器包裹的 clone（GIT_DIR 前缀也算）必须放行——工具没有这个动作，
+  // 拦掉就是死路；而同一路径下的 commit 仍然要拦。
+  `wsl -d Ubuntu-22.04 -- bash -lc "set -e
+GIT_DIR=/mnt/d/project/Python/python/.git git clone --quiet --no-hardlinks --branch main /mnt/d/project/Python/python kawaii
+cd kawaii && git log --oneline -1"`,
   'git clone https://github.com/Flotiarenor/dsh-tool-git.git',
   'git push origin main',
   'git fetch --all --prune',
